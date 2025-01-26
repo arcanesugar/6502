@@ -1,7 +1,7 @@
 CC:=clang
 CFLAGS:=-O0 -g
 #adding .bin to the bin names makes them easyer to ignore in gitignore
-COMPILER_BINNAME:=link.bin
+COMPILER_BINNAME:=comp.bin
 
 .PHONY:all
 all:$(COMPILER_BINNAME)
