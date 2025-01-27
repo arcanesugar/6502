@@ -2,16 +2,24 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <malloc.h>
 
 typedef struct Token{
   char str[100];
   bool eof;
 }Token;
 
-typedef struct LexedToken{
-  void* data;
+//program tree nodes
+enum PTNODE_TYPES{
+  CODE_GROUP,
+  TOKEN
+};
+
+typedef struct PTNode{
   int type;
-}LexedToken;
+  struct PTNode* next;
+  void* data;
+}PTNode;
 
 bool isSeperator(char c){
   if(isspace(c)) return true;
@@ -40,18 +48,75 @@ Token nextToken(FILE* stream, char* lastChar){
   return token;
 };
 
+PTNode* newPTNode(int type, void* data){
+  PTNode* node = (PTNode*)malloc(sizeof(PTNode));
+  node->type = type;
+  node->data = data;
+  node->next = NULL;
+  return node;
+};
+
+void codeGroupAdd(PTNode* codeGroup, PTNode *node){
+  if(codeGroup->type != CODE_GROUP) {
+    fprintf(stderr, "ERROR: codeGroupAdd(): PTNode* codeGroup must be a codeGroup");
+    return;
+  }
+  //if codeGroup.data is empty just add the node to the beginning
+  if(codeGroup->data == NULL){
+    codeGroup->data = node;
+    return;
+  }
+  
+  //append the node to the end of codeGroup.data which is a linked list
+  PTNode *currentNode = (PTNode*)codeGroup->data;
+  while(currentNode->next != NULL){
+    currentNode = currentNode->next;
+  }
+  currentNode->next = node;
+};
+
+void printProgramTree(PTNode *root, int indentationLevel){
+  PTNode* currentNode = root;
+  while(1){
+    for(int i = 0; i<indentationLevel; i++) printf(" ");
+    switch(currentNode->type){
+      case CODE_GROUP:
+        printf("CODE_GROUP {\n");
+        printProgramTree(currentNode->data, indentationLevel+2);
+        for(int i = 0; i<indentationLevel; i++) printf(" ");
+        printf("}\n");
+      break;
+      case TOKEN:
+        printf("TOKEN { %s }\n", (char*)currentNode->data);
+      break;
+      default:
+      printf("I dont know how to print this one\n");
+      break;
+    }
+    if(currentNode->next == NULL) break;
+    currentNode = currentNode->next;
+  }
+};
+
 void compile(char* inputFilename, char* outputFilename){
   FILE* inputFile = fopen(inputFilename,"r");
   FILE* outputFile = fopen(outputFilename,"w");
+  PTNode* program = newPTNode(CODE_GROUP, NULL);
   Token currentToken;
   char lastChar = ' ';
-  for(int i = 0; i<10; i++){
+  while(1){
     currentToken = nextToken(inputFile,&lastChar);
     if(currentToken.eof == true) break;
-    printf("  token{ str = %s }\n", currentToken.str);
+    
+    //allocate a string large enough to fit the token
+    char* data = malloc(sizeof(char)*(strlen(currentToken.str)+1));
+    strcpy(data, currentToken.str);
+    PTNode* node = newPTNode(TOKEN,data);
+    codeGroupAdd(program, node);
   }
   fclose(inputFile);
   fclose(outputFile);
+  printProgramTree(program,0);
 }
 
 int main(int argc, char* argv[]){
