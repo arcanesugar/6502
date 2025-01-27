@@ -3,7 +3,6 @@
 //program tree nodes
 enum PTNODE_TYPES{
   CODE_GROUP,
-  FUNCTION_DECLARATION,
   TOKEN
 };
 
@@ -13,7 +12,11 @@ typedef struct PTNode{
   struct PTNode* parent;
   void* data;
 }PTNode;
-
+typedef struct FunctionDeclerationData{
+  int returnType;
+  char* name;
+  PTNode* code;
+}FunctionDeclerationData;
 
 PTNode* generateProgramTree(FILE* stream);
 void printProgramTree(PTNode *root, int indentationLevel);

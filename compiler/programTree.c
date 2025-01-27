@@ -31,7 +31,16 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
     currentNode = currentNode->next;
   }
   currentNode->next = node;
-};
+}
+
+PTNode* generateTokenNode(FILE* stream, char* lastChar, Token* currentToken){
+  //generate a TOKEN node
+  //allocate a string large enough to fit the token
+  char* data = malloc(sizeof(char)*(strlen(currentToken->str)+1));
+  strcpy(data, currentToken->str);
+  PTNode* node = newPTNode(TOKEN,data);
+  return node;
+}
 
 PTNode* generateProgramTree(FILE* stream){
   PTNode* program = newPTNode(CODE_GROUP, NULL);
@@ -41,8 +50,8 @@ PTNode* generateProgramTree(FILE* stream){
   PTNode* codeGroup = program;
   while(1){
     currentToken = nextToken(stream,&lastChar);
-    if(currentToken.eof == true) break;
-    
+    printf("{ %s, %d, %d }\n", currentToken.str, currentToken.type, currentToken.value);
+    if(currentToken.str[0] == EOF) break;
     if(currentToken.str[0] == '{'){ //Generate a CODE_GROUP node and enter into it
       PTNode *node = newPTNode(CODE_GROUP, NULL);
       codeGroupAdd(codeGroup, node);
@@ -53,12 +62,7 @@ PTNode* generateProgramTree(FILE* stream){
       codeGroup = codeGroup->parent;
       continue;
     }
-
-    //generate a TOKEN node
-    //allocate a string large enough to fit the token
-    char* data = malloc(sizeof(char)*(strlen(currentToken.str)+1));
-    strcpy(data, currentToken.str);
-    PTNode* node = newPTNode(TOKEN,data);
+    PTNode* node = generateTokenNode(stream, &lastChar,&currentToken);
     codeGroupAdd(codeGroup, node);
   }
   return program;
