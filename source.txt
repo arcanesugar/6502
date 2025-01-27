@@ -1,0 +1,3 @@
+none main(){
+  lcd_printchar("a");
+}

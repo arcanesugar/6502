@@ -18,6 +18,7 @@ enum PTNODE_TYPES{
 typedef struct PTNode{
   int type;
   struct PTNode* next;
+  struct PTNode* parent;
   void* data;
 }PTNode;
 
@@ -53,6 +54,7 @@ PTNode* newPTNode(int type, void* data){
   node->type = type;
   node->data = data;
   node->next = NULL;
+  node->parent = NULL;
   return node;
 };
 
@@ -61,6 +63,7 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
     fprintf(stderr, "ERROR: codeGroupAdd(): PTNode* codeGroup must be a codeGroup");
     return;
   }
+  node->parent = codeGroup;
   //if codeGroup.data is empty just add the node to the beginning
   if(codeGroup->data == NULL){
     codeGroup->data = node;
@@ -102,17 +105,31 @@ void compile(char* inputFilename, char* outputFilename){
   FILE* inputFile = fopen(inputFilename,"r");
   FILE* outputFile = fopen(outputFilename,"w");
   PTNode* program = newPTNode(CODE_GROUP, NULL);
+
   Token currentToken;
   char lastChar = ' ';
+  PTNode* codeGroup = program;
   while(1){
     currentToken = nextToken(inputFile,&lastChar);
     if(currentToken.eof == true) break;
-    
+
+    if(currentToken.str[0] == '{'){ //Generate a CODE_GROUP node and enter into it
+      PTNode *node = newPTNode(CODE_GROUP, NULL);
+      codeGroupAdd(codeGroup, node);
+      codeGroup = node;
+      continue;
+    }
+    if(currentToken.str[0] == '}'){// } signifies the end of the current code group
+      codeGroup = codeGroup->parent;
+      continue;
+    }
+
+    //generate a TOKEN node
     //allocate a string large enough to fit the token
     char* data = malloc(sizeof(char)*(strlen(currentToken.str)+1));
     strcpy(data, currentToken.str);
     PTNode* node = newPTNode(TOKEN,data);
-    codeGroupAdd(program, node);
+    codeGroupAdd(codeGroup, node);
   }
   fclose(inputFile);
   fclose(outputFile);
