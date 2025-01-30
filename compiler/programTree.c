@@ -1,8 +1,29 @@
 #include <stdbool.h>
 #include <malloc.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include "programTree.h"
 #include "tokeniser.h"
+
+static void raiseError(char* fmt, ...){
+  fprintf(stderr, "[ERROR - programTree] ");
+  va_list argptr;
+  va_start(argptr,fmt);
+  vfprintf(stderr, fmt, argptr);
+  va_end(argptr);
+  exit(EXIT_FAILURE);
+}
+
+static inline void expectTokenType(Token* token, int type, char c){//c only used if CHAR_TOK and it != 0
+  if(type == CHAR_TOK && c != 0){
+    if(token->str[0] != c)
+      raiseError(" expected %c token, got \"%s\"\n",c,token->str);
+    return;
+  }
+  if(token->type != type)
+    raiseError(" expected %s token, got \"%s\"\n", getTokenTypeName(type), token->str);
+};
 
 PTNode* newPTNode(int type, void* data){
   PTNode* node = (PTNode*)malloc(sizeof(PTNode));
@@ -14,7 +35,7 @@ PTNode* newPTNode(int type, void* data){
 
 void codeGroupAdd(PTNode* codeGroup, PTNode *node){
   if(codeGroup->type != CODE_GROUP) {
-    fprintf(stderr, "ERROR: codeGroupAdd(): PTNode* codeGroup must be a codeGroup");
+    raiseError(" in function (codeGroupAdd) PTNode* codeGroup is not a CODE_GROUP\n");
     return;
   }
   //if codeGroup.data is empty just add the node to the beginning
@@ -47,11 +68,13 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
   
   int type = currentToken->value;
   *currentToken = nextToken(stream, lastChar);
-  if(currentToken->type != NAME_TOK) printf("Expected name token after type\n");
+  expectTokenType(currentToken, NAME_TOK, 0);
+  
   char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
   strcpy(name, currentToken->str);
   
   *currentToken = nextToken(stream, lastChar);
+  expectTokenType(currentToken, CHAR_TOK, 0);// = ( and ; all valid
   
   if(currentToken->str[0] == '('){//function decleration
     PTNode* node = newPTNode(FUNCTION_DECLERATION,NULL);
@@ -59,14 +82,16 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
     data->name = name;
     data->returnType = type;
     data->argumentType = NONE;
+
     while(currentToken->str[0] != ')'){
       *currentToken = nextToken(stream, lastChar);
       if(currentToken->type == TYPE_TOK){
         data->argumentType = currentToken->value;
       }
     }
+
     *currentToken = nextToken(stream, lastChar);//eat '{' token
-    if(currentToken->value != '{') printf("Expected '{' after function decleration\n");
+    expectTokenType(currentToken, CHAR_TOK, '{');
     data->code = generateCodeGroup(stream, lastChar, currentToken);
     node->data = data;
     return node;
@@ -80,25 +105,29 @@ PTNode* generateNameUse(FILE* stream, char* lastChar, Token* currentToken){
   
   char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
   strcpy(name, currentToken->str);
-  printf("%s\n",currentToken->str);
-  printf("%s\n",name);
+
   *currentToken = nextToken(stream, lastChar);
-  if(currentToken->type != CHAR_TOK) printf("Expected character token after name\n");
+  expectTokenType(currentToken,CHAR_TOK, 0);
 
   if(currentToken->str[0] == '('){//function call 
     PTNode* node = newPTNode(FUNCTION_CALL,NULL);
     FunctionCallData* data = malloc(sizeof(FunctionCallData));
     data->name = name;
+
     while(currentToken->str[0] != ')'){
-      *currentToken = nextToken(stream, lastChar);//eat ')' token
+      *currentToken = nextToken(stream, lastChar);
       if(currentToken->type == CHARLIT_TOK || currentToken->type == NUMLIT_TOK){
         data->argument = currentToken->value;
       }
     };
+    *currentToken = nextToken(stream, lastChar);//eat ';' token
+    expectTokenType(currentToken,CHAR_TOK, ';');
+    
     node->data = data;
     return node;
   };
   free(name);
+  raiseError("unexpected token (generateNameUse)\n");
   return NULL;
 }
 
@@ -107,6 +136,7 @@ PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
   while(1){
     *currentToken = nextToken(stream, lastChar);
     PTNode* node;
+    if(currentToken->str[0] == EOF) break;
     if(currentToken->str[0] == '}') break; // closing brace indicates the end of the group
     switch(currentToken->type){
       case TYPE_TOK://function declerations are invalid here, but variable declerations are valid
@@ -126,17 +156,12 @@ PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
 
 PTNode* generateProgramTree(FILE* stream){
   PTNode* program = newPTNode(CODE_GROUP, NULL);
-
   Token currentToken;
   char lastChar = ' ';
   while(1){
     currentToken = nextToken(stream,&lastChar);
     if(currentToken.str[0] == EOF) break;
-    if(currentToken.str[0] == '{'){ //Generate a CODE_GROUP node and enter into it
-      PTNode *node = generateCodeGroup(stream, &lastChar, &currentToken);
-      codeGroupAdd(program, node);
-      continue;
-    }
+    
     PTNode* node;
     switch(currentToken.type){
       case TYPE_TOK:

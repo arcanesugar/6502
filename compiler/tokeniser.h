@@ -23,5 +23,5 @@ typedef struct Token{
   int value;
 }Token;
 
-
+char* getTokenTypeName(int type);
 Token nextToken(FILE* stream, char* lastChar);

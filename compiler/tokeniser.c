@@ -11,6 +11,22 @@ typedef struct Keyword{
   int value;
 }Keyword;
 
+char* getTokenTypeName(int type){
+  switch(type){
+    case NAME_TOK:
+      return "NAME_TOK";
+    case TYPE_TOK:
+      return "TYPE_TOK";
+    case CHAR_TOK:
+      return "CHAR_TOK";
+    case NUMLIT_TOK:
+      return "NUMLIT_TOK";
+    case CHARLIT_TOK:
+      return "CHARLIT_TOK";
+    default:
+    return "<token type name missing>";
+  }
+};
 Keyword keywords[NUM_KEYWORDS] = {
   {.str = "none", .tokenType = TYPE_TOK, .value = NONE},
   {.str = "num8", .tokenType = TYPE_TOK, .value = NUM8}
@@ -46,7 +62,6 @@ Token nextToken(FILE* stream, char* lastChar){
     token.str[tokenLen++] = *lastChar;
     *lastChar = fgetc(stream);
     if(isSeperator(*lastChar) || *lastChar == EOF) break;
-
     //error checking
     switch(token.type){
       case NUMLIT_TOK:
