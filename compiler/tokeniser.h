@@ -4,7 +4,6 @@
 #define MAX_TOKEN_LEN 100
 
 enum TokenTypes{
-  EOF_TOK,
   NAME_TOK,
   TYPE_TOK,
   CHAR_TOK,
