@@ -7,8 +7,10 @@
 
 #define NUM_KEYWORDS 2
 
+int sourceLineNumber = 1;
+
 static void raiseError(char* fmt, ...){//this function is redefined in every file to include the filename
-  fprintf(stderr, "[ERROR - tokeniser] ");
+  fprintf(stderr, "line %d [ERROR - tokeniser] ",sourceLineNumber);
   va_list argptr;
   va_start(argptr,fmt);
   vfprintf(stderr, fmt, argptr);
@@ -36,14 +38,18 @@ char* getTokenTypeName(int type){
     return "<token type name missing>";
   }
 };
+
 Keyword keywords[NUM_KEYWORDS] = {
   {.str = "none", .tokenType = TOK_TYPE, .value = TYPE_NONE},
   {.str = "byte", .tokenType = TOK_TYPE, .value = TYPE_BYTE}
 };
 
 bool isSeperator(char c){//seperators become single character tokens
-  if(isspace(c)) return true;
-  char seperators[] = "(){};";
+  if(isspace(c)){
+    if(c == '\n') sourceLineNumber++;
+    return true;
+  }
+  char seperators[] = "(){};+-";
   if(strchr(seperators,c) != NULL) return true;
   return false;
 }
@@ -53,8 +59,8 @@ enum literalTypes{
   NUMLIT
 };
 
-Token nextToken(FILE* stream, char* lastChar){
-  while(isspace(*lastChar)){*lastChar = fgetc(stream);}//eat whitespace
+Token getNextToken(FILE* stream, char* lastChar){
+  while(isspace(*lastChar)){if(*lastChar == '\n') sourceLineNumber++; *lastChar = fgetc(stream);}//eat whitespace
   Token token;
   token.value = -1;
   int tokenLen = 0;
@@ -65,18 +71,30 @@ Token nextToken(FILE* stream, char* lastChar){
     *lastChar = fgetc(stream);//eat the token
     return token;
   }
+  
+  if(*lastChar == '\''){
+    token.str[0] = *lastChar;
+    token.str[1] = fgetc(stream);
+    token.str[2] = fgetc(stream);
+    token.str[3] = 0;
+    *lastChar = fgetc(stream);//eat ' character
+    
+    if((strlen(token.str) != 3) || (token.str[0] != '\'') || (token.str[2] != '\''))
+      raiseError("char token must be in the form '<char>'\n");
+    token.value = token.str[1];
+    token.type = TOK_BYTELIT;
+    return token;
+  }
 
   token.type = -1;//unknown
   int literalType = -1;//not a literal
   if(isdigit(*lastChar)){
     literalType = NUMLIT;
-  }else if(*lastChar == '\''){
-    literalType = CHARLIT;
   }
   while(1){
     token.str[tokenLen++] = *lastChar;
     *lastChar = fgetc(stream);
-    if(isSeperator(*lastChar) || *lastChar == EOF) break;
+    if(isSeperator(*lastChar) || *lastChar == EOF){if(*lastChar == '\n') sourceLineNumber++; break;}
     //error checking
     if(literalType == NUMLIT){
       if(!(isdigit(*lastChar) || *lastChar == '.')){
@@ -97,21 +115,16 @@ Token nextToken(FILE* stream, char* lastChar){
     }
 
   }
-
+  
   //assign token value if token is a literal
   switch(literalType){
     case NUMLIT:
       token.value = atoi(token.str);
       token.type = TOK_BYTELIT;
       break;
-    case CHARLIT:
-      if((strlen(token.str) != 3) || (token.str[0] != '\'') || (token.str[2] != '\''))
-        raiseError("char token must be in the form '<char>'\n");
-      token.value = token.str[1];
-      token.type = TOK_BYTELIT;
-      break;
     default:
       break;
   }
-  return token;
+  
+  return token;  
 };

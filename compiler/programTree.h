@@ -40,7 +40,7 @@ typedef struct ExprOperation{
 
 typedef struct ExprFunctionCall{
   char* name;
-  char argument;
+  PTNode* argument;
 }ExprFunctionCall;
 
 typedef struct ExprVariable{ //struct is kind of unnecissary

@@ -22,4 +22,10 @@ typedef struct Token{
 }Token;
 
 char* getTokenTypeName(int type);
-Token nextToken(FILE* stream, char* lastChar);
+
+//gets the next token from a stream, uses lastchar for storage
+//on the first call for a stream, lastchar should be whitespace
+//on calls to with that stream in the future, lastchar must remain the same
+Token getNextToken(FILE* stream, char* lastChar);
+
+extern int sourceLineNumber;

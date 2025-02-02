@@ -7,7 +7,7 @@
 #include "tokeniser.h"
 
 static void raiseError(char* fmt, ...){
-  fprintf(stderr, "[ERROR - programTree] ");
+  fprintf(stderr, "line %d [ERROR - programTree] ",sourceLineNumber);
   va_list argptr;
   va_start(argptr,fmt);
   vfprintf(stderr, fmt, argptr);
@@ -53,18 +53,89 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
 }
 
 PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken);
+PTNode* generateFunctionCall(FILE* stream, char* lastChar, Token* currentToken);
+PTNode* generateOperationNode(PTNode* leftOperand, char operator, FILE* stream, char* lastChar, Token* currentToken);
+
+PTNode* generateExpressionNode(FILE* stream, char* lastChar, Token* currentToken){
+  //this is the most complicated one, expressions are basically their own smaller language
+  //assumes that currentToken is the first token of the expression
+  ExpressionData *data = malloc(sizeof(ExpressionData));
+  PTNode* node = newPTNode(NODE_EXPRESSION, data);
+  if(currentToken->type == TOK_NAME){
+    char* name = malloc(sizeof(char)*(strlen(currentToken->str)+1));
+    strcpy(name, currentToken->str);
+
+    *currentToken = getNextToken(stream, lastChar);
+    expectTokenType(currentToken, TOK_CHAR, 0);
+    if(currentToken->str[0] == '('){
+      data->type = EXPR_FUNCTION_CALL;
+      data->value = malloc(sizeof(ExprFunctionCall));
+      ExprFunctionCall* value = data->value;
+      value->name = name;
+      value->argument = NULL;
+      *currentToken = getNextToken(stream, lastChar);
+      if(currentToken->str[0] != ')'){
+        value->argument = generateExpressionNode(stream, lastChar, currentToken);
+      }
+      expectTokenType(currentToken, TOK_CHAR, ')');
+      *currentToken = getNextToken(stream, lastChar);
+    }else{
+      data->type = EXPR_VARIABLE;
+      data->value = malloc(sizeof(ExprVariable));
+      ExprVariable* value = data->value;
+      value->name = name;
+    }
+  }else{
+    if(currentToken->type == TOK_BYTELIT){
+      data->type = EXPR_BYTE_LITERAL;
+      data->value = malloc(sizeof(char));
+      *(char*)data->value = currentToken->value;
+      *currentToken = getNextToken(stream, lastChar);
+    }else{
+      raiseError("unexpected token when generating expression node");
+    }
+  }
+  switch(currentToken->str[0]){
+    case '+':
+    case '-':
+      return generateOperationNode(node, currentToken->str[0], stream, lastChar, currentToken);
+    break;
+    case ')':
+    case ';':
+      return node;
+    break;
+    default:
+      raiseError("unexpected token when generating expression node");
+      return node;
+    break;
+  }
+}
+
+PTNode* generateOperationNode(PTNode* leftOperand, char operator, FILE* stream, char* lastChar, Token* currentToken){
+  PTNode* node = newPTNode(NODE_EXPRESSION, NULL);
+  *currentToken = getNextToken(stream, lastChar);
+  node->data = malloc(sizeof(ExpressionData));
+  ExpressionData* ed = node->data;
+  ed->type = EXPR_OPERATION;
+  ed->value = malloc(sizeof(ExprOperation));
+  ExprOperation* operationData = ed->value;
+  operationData->operator = operator;
+  operationData->leftOperand = leftOperand;
+  operationData->rightOperand = generateExpressionNode(stream, lastChar, currentToken);
+  return node;
+}
 
 PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToken){
   //assume that currentToken is a "type" token
-  
+
   int type = currentToken->value;
-  *currentToken = nextToken(stream, lastChar);
+  *currentToken = getNextToken(stream, lastChar);
   expectTokenType(currentToken, TOK_NAME, 0);
   
   char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
   strcpy(name, currentToken->str);
   
-  *currentToken = nextToken(stream, lastChar);
+  *currentToken = getNextToken(stream, lastChar);
   expectTokenType(currentToken, TOK_CHAR, 0);// = ( and ; all valid
   
   if(currentToken->str[0] == '('){//function decleration
@@ -75,13 +146,13 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
     data->argumentType = TYPE_NONE;
 
     while(currentToken->str[0] != ')'){
-      *currentToken = nextToken(stream, lastChar);
+      *currentToken = getNextToken(stream, lastChar);
       if(currentToken->type == TOK_TYPE){
         data->argumentType = currentToken->value;
       }
     }
 
-    *currentToken = nextToken(stream, lastChar);//eat '{' token
+    *currentToken = getNextToken(stream, lastChar);//eat '{' token
     expectTokenType(currentToken, TOK_CHAR, '{');
     data->code = generateCodeGroup(stream, lastChar, currentToken);
     node->data = data;
@@ -91,38 +162,10 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
   return NULL;
 }
 
-PTNode* generateFunctionCall(FILE* stream, char* lastChar, Token* currentToken){
-  //assume that currentToken is a NAME_TOK
-  PTNode* node;
-  ExprFunctionCall* data = malloc(sizeof(ExprFunctionCall));
-  data->name = malloc(sizeof(char)*(strlen(currentToken->str)+1));
-  strcpy(data->name, currentToken->str);
-
-  //eat '(' token
-  *currentToken = nextToken(stream, lastChar);
-  expectTokenType(currentToken, TOK_CHAR,'(');
-  data->argument = 0;
-
-  *currentToken = nextToken(stream, lastChar);
-  if(currentToken->type == TOK_BYTELIT){
-    data->argument = currentToken->value;
-    *currentToken = nextToken(stream, lastChar);
-  }
-  expectTokenType(currentToken, TOK_CHAR,')');
-  
-  ExpressionData* expressionData = malloc(sizeof(ExpressionData));
-  expressionData->type = EXPR_FUNCTION_CALL;
-  expressionData->value = data;
-  node = newPTNode(NODE_EXPRESSION,expressionData);
-  *currentToken = nextToken(stream, lastChar);
-  expectTokenType(currentToken, TOK_CHAR,';');
-  return node;
-};
-
 PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
   PTNode* codeGroup = newPTNode(NODE_CODE_GROUP,NULL);
   while(1){
-    *currentToken = nextToken(stream, lastChar);
+    *currentToken = getNextToken(stream, lastChar);
     PTNode* node;
     if(currentToken->str[0] == EOF) break;
     if(currentToken->str[0] == '}') break; // closing brace indicates the end of the group
@@ -131,7 +174,7 @@ PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
         node = generateDeclerationNode(stream, lastChar, currentToken);
       break;
       case TOK_NAME:
-        node = generateFunctionCall(stream, lastChar, currentToken);
+        node = generateExpressionNode(stream, lastChar, currentToken);
       break;
       default:
         raiseError("(generateCodeGroup) unexpected token\n");
@@ -147,7 +190,7 @@ PTNode* generateProgramTree(FILE* stream){
   Token currentToken;
   char lastChar = ' ';
   while(1){
-    currentToken = nextToken(stream,&lastChar);
+    currentToken = getNextToken(stream,&lastChar);
     if(currentToken.str[0] == EOF) break;
     
     PTNode* node;
@@ -177,14 +220,41 @@ void printFunctionDecleration(PTNode* currentNode, int indentationLevel){
   printf("}\n");
 }
 
+void printExpression(PTNode* currentNode, int indentationLevel);
+
 void printFunctionCall(PTNode* currentNode, int indentationLevel){
   ExpressionData* ed = (ExpressionData*)currentNode->data;
   ExprFunctionCall* fcd = ed->value;
-  printf("FUNCTION_CALL{ \n");
+  printf("FUNCTION_CALL{\n");
   for(int i = 0; i<indentationLevel+2; i++) printf(" ");
   printf("name: %s\n", fcd->name);
   for(int i = 0; i<indentationLevel+2; i++) printf(" ");
-  printf("argument: %d\n", fcd->argument);
+  printf("argument:\n");
+  for(int i = 0; i<indentationLevel+4; i++) printf(" ");
+  if(fcd->argument != NULL) {printExpression(fcd->argument, indentationLevel+4);}
+  else{printf("none");}
+  printf("\n");
+  for(int i = 0; i<indentationLevel; i++) printf(" ");
+  printf("}\n");
+}
+
+void printOperation(PTNode* currentNode, int indentationLevel){
+  ExpressionData* ed = (ExpressionData*)currentNode->data;
+  ExprOperation* operation = ed->value;
+  printf("OPERATION{\n");
+
+  for(int i = 0; i<indentationLevel+2; i++) printf(" ");
+  printf("leftOperand: ");
+  printExpression(operation->leftOperand, indentationLevel+4);
+  printf("\n");
+
+  for(int i = 0; i<indentationLevel+2; i++) printf(" ");
+  printf("rightOperand: ");
+  printExpression(operation->rightOperand, indentationLevel+4);
+  printf("\n");
+
+  for(int i = 0; i<indentationLevel+2; i++) printf(" ");
+  printf("operator: %c\n",operation->operator);
   for(int i = 0; i<indentationLevel; i++) printf(" ");
   printf("}\n");
 }
@@ -194,6 +264,12 @@ void printExpression(PTNode* currentNode, int indentationLevel){
   switch(data->type){
     case EXPR_FUNCTION_CALL:
       printFunctionCall(currentNode, indentationLevel);
+    break;
+    case EXPR_BYTE_LITERAL:
+      printf("%d", *(char*)data->value);
+    break;
+    case EXPR_OPERATION:
+      printOperation(currentNode, indentationLevel);
     break;
     default:
       for(int i = 0; i<indentationLevel; i++) printf(" ");
