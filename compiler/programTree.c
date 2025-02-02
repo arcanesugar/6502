@@ -16,13 +16,13 @@ static void raiseError(char* fmt, ...){
 }
 
 static inline void expectTokenType(Token* token, int type, char c){//c only used if CHAR_TOK and it != 0
-  if(type == CHAR_TOK && c != 0){
+  if(type == TOK_CHAR && c != 0){
     if(token->str[0] != c)
-      raiseError(" expected %c token, got \"%s\"\n",c,token->str);
+      raiseError("expected %c token, got \"%s\"\n",c,token->str);
     return;
   }
   if(token->type != type)
-    raiseError(" expected %s token, got \"%s\"\n", getTokenTypeName(type), token->str);
+    raiseError("expected %s token, got \"%s\"\n", getTokenTypeName(type), token->str);
 };
 
 PTNode* newPTNode(int type, void* data){
@@ -34,8 +34,8 @@ PTNode* newPTNode(int type, void* data){
 };
 
 void codeGroupAdd(PTNode* codeGroup, PTNode *node){
-  if(codeGroup->type != CODE_GROUP) {
-    raiseError(" in function (codeGroupAdd) PTNode* codeGroup is not a CODE_GROUP\n");
+  if(codeGroup->type != NODE_CODE_GROUP) {
+    raiseError("(codeGroupAdd) PTNode* codeGroup is not a CODE_GROUP\n");
     return;
   }
   //if codeGroup.data is empty just add the node to the beginning
@@ -52,15 +52,6 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
   currentNode->next = node;
 }
 
-PTNode* generateTokenNode(FILE* stream, char* lastChar, Token* currentToken){
-  //generate a TOKEN node
-  //allocate a string large enough to fit the token
-  char* data = malloc(sizeof(char)*(strlen(currentToken->str)+1));
-  strcpy(data, currentToken->str);
-  PTNode* node = newPTNode(TOKEN,data);
-  return node;
-}
-
 PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken);
 
 PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToken){
@@ -68,30 +59,30 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
   
   int type = currentToken->value;
   *currentToken = nextToken(stream, lastChar);
-  expectTokenType(currentToken, NAME_TOK, 0);
+  expectTokenType(currentToken, TOK_NAME, 0);
   
   char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
   strcpy(name, currentToken->str);
   
   *currentToken = nextToken(stream, lastChar);
-  expectTokenType(currentToken, CHAR_TOK, 0);// = ( and ; all valid
+  expectTokenType(currentToken, TOK_CHAR, 0);// = ( and ; all valid
   
   if(currentToken->str[0] == '('){//function decleration
-    PTNode* node = newPTNode(FUNCTION_DECLERATION,NULL);
+    PTNode* node = newPTNode(NODE_FUNCTION_DECLERATION,NULL);
     FunctionDeclerationData* data = (FunctionDeclerationData*)malloc(sizeof(FunctionDeclerationData));
     data->name = name;
     data->returnType = type;
-    data->argumentType = NONE;
+    data->argumentType = TYPE_NONE;
 
     while(currentToken->str[0] != ')'){
       *currentToken = nextToken(stream, lastChar);
-      if(currentToken->type == TYPE_TOK){
+      if(currentToken->type == TOK_TYPE){
         data->argumentType = currentToken->value;
       }
     }
 
     *currentToken = nextToken(stream, lastChar);//eat '{' token
-    expectTokenType(currentToken, CHAR_TOK, '{');
+    expectTokenType(currentToken, TOK_CHAR, '{');
     data->code = generateCodeGroup(stream, lastChar, currentToken);
     node->data = data;
     return node;
@@ -100,53 +91,50 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
   return NULL;
 }
 
-PTNode* generateNameUse(FILE* stream, char* lastChar, Token* currentToken){
-  //assume that currentToken is a "name" token
-  
-  char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
-  strcpy(name, currentToken->str);
+PTNode* generateFunctionCall(FILE* stream, char* lastChar, Token* currentToken){
+  //assume that currentToken is a NAME_TOK
+  PTNode* node;
+  ExprFunctionCall* data = malloc(sizeof(ExprFunctionCall));
+  data->name = malloc(sizeof(char)*(strlen(currentToken->str)+1));
+  strcpy(data->name, currentToken->str);
+
+  //eat '(' token
+  *currentToken = nextToken(stream, lastChar);
+  expectTokenType(currentToken, TOK_CHAR,'(');
+  data->argument = 0;
 
   *currentToken = nextToken(stream, lastChar);
-  expectTokenType(currentToken,CHAR_TOK, 0);
-
-  if(currentToken->str[0] == '('){//function call 
-    PTNode* node = newPTNode(FUNCTION_CALL,NULL);
-    FunctionCallData* data = malloc(sizeof(FunctionCallData));
-    data->name = name;
-
-    while(currentToken->str[0] != ')'){
-      *currentToken = nextToken(stream, lastChar);
-      if(currentToken->type == CHARLIT_TOK || currentToken->type == NUMLIT_TOK){
-        data->argument = currentToken->value;
-      }
-    };
-    *currentToken = nextToken(stream, lastChar);//eat ';' token
-    expectTokenType(currentToken,CHAR_TOK, ';');
-    
-    node->data = data;
-    return node;
-  };
-  free(name);
-  raiseError("unexpected token (generateNameUse)\n");
-  return NULL;
-}
+  if(currentToken->type == TOK_BYTELIT){
+    data->argument = currentToken->value;
+    *currentToken = nextToken(stream, lastChar);
+  }
+  expectTokenType(currentToken, TOK_CHAR,')');
+  
+  ExpressionData* expressionData = malloc(sizeof(ExpressionData));
+  expressionData->type = EXPR_FUNCTION_CALL;
+  expressionData->value = data;
+  node = newPTNode(NODE_EXPRESSION,expressionData);
+  *currentToken = nextToken(stream, lastChar);
+  expectTokenType(currentToken, TOK_CHAR,';');
+  return node;
+};
 
 PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
-  PTNode* codeGroup = newPTNode(CODE_GROUP,NULL);
+  PTNode* codeGroup = newPTNode(NODE_CODE_GROUP,NULL);
   while(1){
     *currentToken = nextToken(stream, lastChar);
     PTNode* node;
     if(currentToken->str[0] == EOF) break;
     if(currentToken->str[0] == '}') break; // closing brace indicates the end of the group
     switch(currentToken->type){
-      case TYPE_TOK://function declerations are invalid here, but variable declerations are valid
+      case TOK_TYPE://function declerations are invalid here, but variable declerations are valid
         node = generateDeclerationNode(stream, lastChar, currentToken);
       break;
-      case NAME_TOK:
-        node = generateNameUse(stream, lastChar, currentToken);
+      case TOK_NAME:
+        node = generateFunctionCall(stream, lastChar, currentToken);
       break;
       default:
-        node = generateTokenNode(stream, lastChar, currentToken);
+        raiseError("(generateCodeGroup) unexpected token\n");
       break;
     };
     codeGroupAdd(codeGroup,node);
@@ -155,7 +143,7 @@ PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
 }
 
 PTNode* generateProgramTree(FILE* stream){
-  PTNode* program = newPTNode(CODE_GROUP, NULL);
+  PTNode* program = newPTNode(NODE_CODE_GROUP, NULL);
   Token currentToken;
   char lastChar = ' ';
   while(1){
@@ -164,12 +152,11 @@ PTNode* generateProgramTree(FILE* stream){
     
     PTNode* node;
     switch(currentToken.type){
-      case TYPE_TOK:
+      case TOK_TYPE:
         node = generateDeclerationNode(stream, &lastChar, &currentToken);
         break;
       default:
-        node = generateTokenNode(stream, &lastChar,&currentToken);
-        break;
+        raiseError("(generateProgramTree) unexpected token\n");
     }
     codeGroupAdd(program, node);
   }
@@ -191,7 +178,8 @@ void printFunctionDecleration(PTNode* currentNode, int indentationLevel){
 }
 
 void printFunctionCall(PTNode* currentNode, int indentationLevel){
-  FunctionCallData* fcd = (FunctionCallData*)currentNode->data;
+  ExpressionData* ed = (ExpressionData*)currentNode->data;
+  ExprFunctionCall* fcd = ed->value;
   printf("FUNCTION_CALL{ \n");
   for(int i = 0; i<indentationLevel+2; i++) printf(" ");
   printf("name: %s\n", fcd->name);
@@ -201,25 +189,35 @@ void printFunctionCall(PTNode* currentNode, int indentationLevel){
   printf("}\n");
 }
 
+void printExpression(PTNode* currentNode, int indentationLevel){
+  ExpressionData* data = currentNode->data;
+  switch(data->type){
+    case EXPR_FUNCTION_CALL:
+      printFunctionCall(currentNode, indentationLevel);
+    break;
+    default:
+      for(int i = 0; i<indentationLevel; i++) printf(" ");
+      printf("I cant print this expression\n");
+    break;
+  }
+}
+
 void printProgramTree(PTNode *root, int indentationLevel){
   PTNode* currentNode = root;
   while(1){
     for(int i = 0; i<indentationLevel; i++) printf(" ");
     switch(currentNode->type){
-      case CODE_GROUP:
+      case NODE_CODE_GROUP:
         printf("CODE_GROUP {\n");
         printProgramTree(currentNode->data, indentationLevel+2);
         for(int i = 0; i<indentationLevel; i++) printf(" ");
         printf("}\n");
       break;
-      case FUNCTION_DECLERATION:
+      case NODE_FUNCTION_DECLERATION:
         printFunctionDecleration(currentNode, indentationLevel);
       break;
-      case FUNCTION_CALL:
-        printFunctionCall(currentNode, indentationLevel);
-      break;
-      case TOKEN:
-        printf("TOKEN { %s }\n", (char*)currentNode->data);
+      case NODE_EXPRESSION:
+        printExpression(currentNode, indentationLevel);
       break;
       default:
       printf("I dont know how to print this one\n");

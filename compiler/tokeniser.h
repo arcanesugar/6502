@@ -4,17 +4,15 @@
 #define MAX_TOKEN_LEN 100
 
 enum TokenTypes{
-  NAME_TOK,
-  TYPE_TOK,
-  CHAR_TOK,
-  //num and string literals
-  NUMLIT_TOK,
-  CHARLIT_TOK
+  TOK_NAME,
+  TOK_TYPE,
+  TOK_CHAR,
+  TOK_BYTELIT
 };
 
 enum DataTypes{
-  NONE,
-  NUM8
+  TYPE_NONE,
+  TYPE_BYTE
 };
 
 typedef struct Token{

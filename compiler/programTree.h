@@ -2,10 +2,9 @@
 
 //program tree nodes
 enum PTNODE_TYPES{
-  CODE_GROUP,
-  FUNCTION_DECLERATION,
-  FUNCTION_CALL,
-  TOKEN
+  NODE_CODE_GROUP,
+  NODE_FUNCTION_DECLERATION,
+  NODE_EXPRESSION
 };
 
 typedef struct PTNode{
@@ -21,10 +20,32 @@ typedef struct FunctionDeclerationData{
   PTNode* code;
 }FunctionDeclerationData;
 
-typedef struct FunctionCallData{
+enum EXPRESSION_TYPES{
+  EXPR_OPERATION,
+  EXPR_BYTE_LITERAL,
+  EXPR_VARIABLE,
+  EXPR_FUNCTION_CALL
+};
+
+typedef struct ExpressionData{
+  int type;
+  void* value;
+}ExpressionData;
+
+typedef struct ExprOperation{
+  PTNode* leftOperand;
+  PTNode* rightOperand;
+  char operator;
+}ExprOperation;
+
+typedef struct ExprFunctionCall{
   char* name;
   char argument;
-}FunctionCallData;
+}ExprFunctionCall;
+
+typedef struct ExprVariable{ //struct is kind of unnecissary
+  char* name;
+}ExprVariable;
 
 PTNode* generateProgramTree(FILE* stream);
 void printProgramTree(PTNode *root, int indentationLevel);
