@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -21,7 +22,6 @@ typedef struct Token{
   int value;
 }Token;
 
-char* getTokenTypeName(int type);
 
 //gets the next token from a stream, uses lastchar for storage
 //on the first call for a stream, lastchar should be whitespace

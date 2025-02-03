@@ -4,40 +4,17 @@
 #include <stdarg.h>
 
 #include "tokeniser.h"
+#include "error.h"
 
 #define NUM_KEYWORDS 2
 
 int sourceLineNumber = 1;
-
-static void raiseError(char* fmt, ...){//this function is redefined in every file to include the filename
-  fprintf(stderr, "line %d [ERROR - tokeniser] ",sourceLineNumber);
-  va_list argptr;
-  va_start(argptr,fmt);
-  vfprintf(stderr, fmt, argptr);
-  va_end(argptr);
-  exit(EXIT_FAILURE);
-}
 
 typedef struct Keyword{
   char str[10];
   int tokenType;
   int value;
 }Keyword;
-
-char* getTokenTypeName(int type){
-  switch(type){
-    case TOK_NAME:
-      return "NAME";
-    case TOK_TYPE:
-      return "TYPE";
-    case TOK_CHAR:
-      return "CHAR";
-    case TOK_BYTELIT:
-      return "BYTELIT";
-    default:
-    return "<token type name missing>";
-  }
-};
 
 Keyword keywords[NUM_KEYWORDS] = {
   {.str = "none", .tokenType = TOK_TYPE, .value = TYPE_NONE},

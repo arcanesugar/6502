@@ -1,4 +1,3 @@
-
 none helloWorld(){
   lcd_printchar('h');
   lcd_printchar('e');
