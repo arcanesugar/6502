@@ -8,7 +8,8 @@ enum TokenTypes{
   TOK_NAME,
   TOK_TYPE,
   TOK_CHAR,
-  TOK_BYTELIT
+  TOK_BYTELIT,
+  TOK_EOF
 };
 
 enum DataTypes{
@@ -23,9 +24,7 @@ typedef struct Token{
 }Token;
 
 
-//gets the next token from a stream, uses lastchar for storage
-//on the first call for a stream, lastchar should be whitespace
-//on calls to with that stream in the future, lastchar must remain the same
-Token getNextToken(FILE* stream, char* lastChar);
+//gets the next token from a stream
+Token getNextToken(FILE* stream);
 
 extern int sourceLineNumber;

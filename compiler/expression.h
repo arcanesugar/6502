@@ -24,8 +24,5 @@ typedef struct ExprFunctionCall{
   Expression* argument;
 }ExprFunctionCall;
 
-typedef struct ExprVariable{ //struct is kind of unnecissary
-  char* name;
-}ExprVariable;
-
-Expression* parseExpression(FILE* stream, char* lastChar, Token* currentToken);
+//parses an expression until a terminating character is encountered (';' or sometimes ')')
+Expression* parseExpression(FILE* stream, Token* currentToken);

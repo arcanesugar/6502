@@ -71,23 +71,24 @@ void printFunctionDecleration(PTNode* node, int indent){
 
 void printCodeGroup(PTNode *node, int indent){
   printWithIndent(indent, "CODE_GROUP {\n");
+  PTNode* currentNode = node->data;
   while(1){
-    switch(node->type){
+    if(currentNode == NULL) break;
+    switch(currentNode->type){
       case NODE_CODE_GROUP:
-        printCodeGroup(node->data, indent+2);
+        printCodeGroup(currentNode->data, indent+2);
         break;
       case NODE_FUNCTION_DECLERATION:
-        printFunctionDecleration(node, indent+2);
+        printFunctionDecleration(currentNode, indent+2);
         break;
       case NODE_EXPRESSION:
-        printExpression(node->data, indent+2);
+        printExpression(currentNode->data, indent+2);
         break;
       default:
         printWithIndent(indent+2,"I dont know how to print this one\n");
         break;
     }
-    if(node->next == NULL) break;
-    node = node->next;
+    currentNode = currentNode->next;
   }
   printWithIndent(indent,"}\n");
 };

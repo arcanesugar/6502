@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #include "tokeniser.h"
 #include "error.h"
@@ -16,92 +17,100 @@ typedef struct Keyword{
   int value;
 }Keyword;
 
-Keyword keywords[NUM_KEYWORDS] = {
+static Keyword keywords[NUM_KEYWORDS] = {
   {.str = "none", .tokenType = TOK_TYPE, .value = TYPE_NONE},
   {.str = "byte", .tokenType = TOK_TYPE, .value = TYPE_BYTE}
 };
 
-bool isSeperator(char c){//seperators become single character tokens
-  if(isspace(c)){
-    if(c == '\n') sourceLineNumber++;
-    return true;
-  }
-  char seperators[] = "(){};+-";
-  if(strchr(seperators,c) != NULL) return true;
+static bool isCharToken(char c){
+  char charTokens[] = "(){}-+=;";
+  return strchr(charTokens,c) != NULL;
+}
+
+static bool isSeperator(char c){
+  if(isCharToken(c)) return true;
+  if(isspace(c)) return true;
+  if(c == EOF) return true;
   return false;
 }
 
-enum literalTypes{
-  CHARLIT,
-  NUMLIT
-};
+static Token scanNumLiteral(FILE* stream);
+static Token scanCharLiteral(FILE* stream);
+static Token scanWordToken(FILE* stream);//keyword or name
 
-Token getNextToken(FILE* stream, char* lastChar){
-  while(isspace(*lastChar)){if(*lastChar == '\n') sourceLineNumber++; *lastChar = fgetc(stream);}//eat whitespace
-  Token token;
-  token.value = -1;
-  int tokenLen = 0;
-  if(isSeperator(*lastChar) || *lastChar == EOF){
-    token.str[0] = *lastChar;
-    token.str[1] = 0;
+Token getNextToken(FILE* stream){
+  char c;
+  while(isspace(c = fgetc(stream))){if(c == '\n') sourceLineNumber++;}//eat whitespace
+  if(c == EOF){
+    Token token;
+    token.type = TOK_EOF;
+    return token;
+  }
+  if(isCharToken(c)){
+    Token token;
     token.type = TOK_CHAR;
-    *lastChar = fgetc(stream);//eat the token
-    return token;
-  }
-  
-  if(*lastChar == '\''){
-    token.str[0] = *lastChar;
-    token.str[1] = fgetc(stream);
-    token.str[2] = fgetc(stream);
-    token.str[3] = 0;
-    *lastChar = fgetc(stream);//eat ' character
-    
-    if((strlen(token.str) != 3) || (token.str[0] != '\'') || (token.str[2] != '\''))
-      raiseError("char token must be in the form '<char>'\n");
-    token.value = token.str[1];
-    token.type = TOK_BYTELIT;
+    token.str[0] = c;
+    token.str[1] = '\0';
     return token;
   }
 
-  token.type = -1;//unknown
-  int literalType = -1;//not a literal
-  if(isdigit(*lastChar)){
-    literalType = NUMLIT;
-  }
-  while(1){
-    token.str[tokenLen++] = *lastChar;
-    *lastChar = fgetc(stream);
-    if(isSeperator(*lastChar) || *lastChar == EOF){if(*lastChar == '\n') sourceLineNumber++; break;}
-    //error checking
-    if(literalType == NUMLIT){
-      if(!(isdigit(*lastChar) || *lastChar == '.')){
-        raiseError("num token can only contain 0-9 and .\n");
-      }
-    }
-  }
-  token.str[tokenLen++] = 0;
-  
-  //determine token type if unknown
-  if(token.type == -1){
-    token.type = TOK_NAME;
-    for(int i = 0; i<NUM_KEYWORDS; i++){
-      if(strcmp(token.str, keywords[i].str) == 0){
-        token.type = keywords[i].tokenType;
-        token.value = keywords[i].value;
-      }
-    }
+  ungetc(c, stream);//push c back onto the input stream
+  //c is the next token that will be read from the stream
+  if(c == '\'')
+    return scanCharLiteral(stream);
 
-  }
-  
-  //assign token value if token is a literal
-  switch(literalType){
-    case NUMLIT:
-      token.value = atoi(token.str);
-      token.type = TOK_BYTELIT;
-      break;
-    default:
-      break;
-  }
-  
-  return token;  
+  if(isdigit(c))
+    return scanNumLiteral(stream);
+
+  return scanWordToken(stream);
 };
+
+Token scanNumLiteral(FILE* stream){
+  Token token;
+  token.type = TOK_BYTELIT;
+  int len = 0;
+  char c;
+  while(isdigit(c = fgetc(stream))){
+    token.str[len++] = c;
+  }
+  ungetc(c,stream);
+  token.str[len] = '\0';
+  token.value = atoi(token.str);
+  return token;
+}
+
+Token scanCharLiteral(FILE* stream){
+  Token token;
+  token.type = TOK_BYTELIT;
+  token.str[0] = fgetc(stream);
+  token.str[1] = fgetc(stream);
+  token.str[2] = fgetc(stream);
+  token.str[3] = '\0';
+  if(token.str[0] != '\'' || token.str[2] != '\'') raiseError("char literal must be in the form '<char>'\n");
+  token.value = token.str[1];
+  return token;
+}
+
+void keywordMatch(Token *token){
+  for(int i = 0; i<NUM_KEYWORDS; i++){
+    if(strcmp(token->str, keywords[i].str) == 0){
+      token->type = keywords[i].tokenType;
+      token->value = keywords[i].value;
+      return;
+    }
+  }
+}
+
+Token scanWordToken(FILE* stream){
+  Token token;
+  token.type = TOK_NAME;
+  int len = 0;
+  char c;
+  while(!isSeperator(c = fgetc(stream))){
+    token.str[len++] = c;
+  }
+  token.str[len] = '\0';
+  ungetc(c,stream);
+  keywordMatch(&token);
+  return token;
+}

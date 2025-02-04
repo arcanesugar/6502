@@ -13,5 +13,6 @@ none helloWorld(){
 }
 
 none main(){
-  helloWorld(lcd_printchar(10+1-2));
+  helloWorld(lcd_printchar('a'));
+  lcd_printchar(10-2);
 }

@@ -35,23 +35,23 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
   currentNode->next = node;
 }
 
-PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken);
+PTNode* generateCodeGroup(FILE* stream, Token* currentToken);
 
-PTNode* generateExpressionNode(FILE* stream, char* lastChar, Token* currentToken){
-  return newPTNode(NODE_EXPRESSION, parseExpression(stream, lastChar, currentToken));
+PTNode* generateExpressionNode(FILE* stream, Token* currentToken){
+  return newPTNode(NODE_EXPRESSION, parseExpression(stream, currentToken));
 }
 
-PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToken){
+PTNode* generateDeclerationNode(FILE* stream, Token* currentToken){
   //assume that currentToken is a "type" token
 
   int type = currentToken->value;
-  *currentToken = getNextToken(stream, lastChar);
+  *currentToken = getNextToken(stream);
   expectTokenType(currentToken, TOK_NAME, 0);
   
   char* name = malloc((strlen(currentToken->str)+1)*sizeof(char));
   strcpy(name, currentToken->str);
   
-  *currentToken = getNextToken(stream, lastChar);
+  *currentToken = getNextToken(stream);
   expectTokenType(currentToken, TOK_CHAR, 0);// = ( and ; all valid
   
   if(currentToken->str[0] == '('){//function decleration
@@ -62,15 +62,15 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
     data->argumentType = TYPE_NONE;
 
     while(currentToken->str[0] != ')'){
-      *currentToken = getNextToken(stream, lastChar);
+      *currentToken = getNextToken(stream);
       if(currentToken->type == TOK_TYPE){
         data->argumentType = currentToken->value;
       }
     }
 
-    *currentToken = getNextToken(stream, lastChar);//eat '{' token
+    *currentToken = getNextToken(stream);//eat '{' token
     expectTokenType(currentToken, TOK_CHAR, '{');
-    data->code = generateCodeGroup(stream, lastChar, currentToken);
+    data->code = generateCodeGroup(stream, currentToken);
     node->data = data;
     return node;
   }
@@ -78,19 +78,19 @@ PTNode* generateDeclerationNode(FILE* stream, char* lastChar, Token* currentToke
   return NULL;
 }
 
-PTNode* generateCodeGroup(FILE* stream, char* lastChar, Token* currentToken){
+PTNode* generateCodeGroup(FILE* stream, Token* currentToken){
   PTNode* codeGroup = newPTNode(NODE_CODE_GROUP,NULL);
   while(1){
-    *currentToken = getNextToken(stream, lastChar);
+    *currentToken = getNextToken(stream);
     PTNode* node;
-    if(currentToken->str[0] == EOF) break;
+    if(currentToken->type == TOK_EOF) break;
     if(currentToken->str[0] == '}') break; // closing brace indicates the end of the group
     switch(currentToken->type){
       case TOK_TYPE://function declerations are invalid here, but variable declerations are valid
-        node = generateDeclerationNode(stream, lastChar, currentToken);
+        node = generateDeclerationNode(stream, currentToken);
       break;
       case TOK_NAME:
-        node = generateExpressionNode(stream, lastChar, currentToken);
+        node = generateExpressionNode(stream, currentToken);
       break;
       default:
         raiseError("(generateCodeGroup) unexpected token\n");
@@ -106,13 +106,13 @@ PTNode* generateProgramTree(FILE* stream){
   Token currentToken;
   char lastChar = ' ';
   while(1){
-    currentToken = getNextToken(stream,&lastChar);
-    if(currentToken.str[0] == EOF) break;
+    currentToken = getNextToken(stream);
+    if(currentToken.type == TOK_EOF) break;
     
     PTNode* node;
     switch(currentToken.type){
       case TOK_TYPE:
-        node = generateDeclerationNode(stream, &lastChar, &currentToken);
+        node = generateDeclerationNode(stream, &currentToken);
         break;
       default:
         raiseError("(generateProgramTree) unexpected token\n");
