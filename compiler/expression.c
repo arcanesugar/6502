@@ -7,7 +7,6 @@ ExprFunctionCall* parseFunctionCall(char* name, FILE* stream, Token* currentToke
 Expression* generateOperationNode(Expression* leftOperand, char operator, FILE* stream, Token* currentToken);
 
 Expression* parseExpression(FILE* stream, Token* currentToken){
-  //this is the most complicated one, expressions are basically their own smaller language
   //assumes that currentToken is the first token of the expression
   Expression* expr = malloc(sizeof(Expression));
   char* name;

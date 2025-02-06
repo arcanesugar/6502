@@ -9,7 +9,9 @@
 
 #define NUM_KEYWORDS 2
 
-int sourceLineNumber = 1;
+static Token scanNumLiteral(FILE* stream);
+static Token scanCharLiteral(FILE* stream);
+static Token scanWordToken(FILE* stream);//keyword or name
 
 typedef struct Keyword{
   char str[10];
@@ -17,6 +19,8 @@ typedef struct Keyword{
   int value;
 }Keyword;
 
+int sourceLineNumber = 1;
+static Token nextToken = (Token){.type = -1};
 static Keyword keywords[NUM_KEYWORDS] = {
   {.str = "none", .tokenType = TOK_TYPE, .value = TYPE_NONE},
   {.str = "byte", .tokenType = TOK_TYPE, .value = TYPE_BYTE}
@@ -34,11 +38,19 @@ static bool isSeperator(char c){
   return false;
 }
 
-static Token scanNumLiteral(FILE* stream);
-static Token scanCharLiteral(FILE* stream);
-static Token scanWordToken(FILE* stream);//keyword or name
+void ungetToken(Token token){
+  if(nextToken.type != -1){
+    raiseError("ungetToken(): only 1 token can be 'ungotten' at a time\n");
+  }
+  nextToken = token;
+}
 
 Token getNextToken(FILE* stream){
+  if(nextToken.type != -1){
+    Token token = nextToken;
+    nextToken.type = -1;
+    return token;
+  }
   char c;
   while(isspace(c = fgetc(stream))){if(c == '\n') sourceLineNumber++;}//eat whitespace
   if(c == EOF){
@@ -51,6 +63,7 @@ Token getNextToken(FILE* stream){
     token.type = TOK_CHAR;
     token.str[0] = c;
     token.str[1] = '\0';
+    token.value = c;
     return token;
   }
 

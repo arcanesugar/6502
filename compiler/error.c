@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -19,6 +20,12 @@ char* getTokenTypeName(int type){
     return "<token type name missing>";
   }
 };
+
+char* strToHeap(char* str){
+  char* copy = malloc(sizeof(char) * (strlen(str)+1));
+  strcpy(copy, str);
+  return copy;
+}
 
 void expectTokenType(Token* token, int type, char c){
   if(type == TOK_CHAR && c != 0){

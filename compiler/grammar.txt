@@ -1,0 +1,19 @@
+to interpret this file imagine bnf notation if it was notation if it was different and a little worse
+square brackets indicate a list that can be empty
+
+<code_group> = '{' [<statement>] '}'
+
+<statement> = <variable_definition> | <variable_assignment> | <function_call> ';'
+
+<variable_definition> = <type> <name> ';' | <type> <name> '=' <expression> ';'
+<variable_assignment> = <name> '=' <expression> ';'
+
+<function_definition> = <type> <name> '(' [<type> <name>] ')' <code_group>
+<function_call> = <name> '(' [<expression>] ')'
+
+<expression> = <function_call> | <literal> | <operation> | <variable>
+<operation> = <expression> <operator> <expression>
+
+<literal> = '<char>' | <number>
+<type> = 'none' | 'byte'
+<operation> = '-' | '+'

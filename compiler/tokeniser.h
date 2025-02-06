@@ -5,7 +5,7 @@
 #define MAX_TOKEN_LEN 100
 
 enum TokenTypes{
-  TOK_NAME,
+  TOK_NAME = 0,
   TOK_TYPE,
   TOK_CHAR,
   TOK_BYTELIT,
@@ -26,5 +26,7 @@ typedef struct Token{
 
 //gets the next token from a stream
 Token getNextToken(FILE* stream);
+//make getNextToken return token before continuing to read from stream
+void ungetToken(Token token);
 
 extern int sourceLineNumber;

@@ -8,7 +8,11 @@
 #include "expression.h"
 #include "tokeniser.h"
 
-PTNode* newPTNode(int type, void* data){
+static PTNode* parseCodeGroup(FILE* stream, Token* currentToken);
+static PTNode* parseFunctionDecleration(int returnType, char* name, FILE* stream, Token* currentToken);
+static PTNode* parseDecleration(FILE* stream, Token* currentToken);
+
+static PTNode* newPTNode(int type, void* data){
   PTNode* node = (PTNode*)malloc(sizeof(PTNode));
   node->type = type;
   node->data = data;
@@ -16,9 +20,9 @@ PTNode* newPTNode(int type, void* data){
   return node;
 };
 
-void codeGroupAdd(PTNode* codeGroup, PTNode *node){
+static void codeGroupAdd(PTNode* codeGroup, PTNode *node){
   if(codeGroup->type != NODE_CODE_GROUP) {
-    raiseError("(codeGroupAdd) PTNode* codeGroup is not a CODE_GROUP\n");
+    raiseError("codeGroupAdd(): PTNode* codeGroup is not a CODE_GROUP\n");
     return;
   }
   //if codeGroup.data is empty just add the node to the beginning
@@ -35,14 +39,56 @@ void codeGroupAdd(PTNode* codeGroup, PTNode *node){
   currentNode->next = node;
 }
 
-PTNode* generateCodeGroup(FILE* stream, Token* currentToken);
-
-PTNode* generateExpressionNode(FILE* stream, Token* currentToken){
-  return newPTNode(NODE_EXPRESSION, parseExpression(stream, currentToken));
+PTNode* generateProgramTree(FILE* stream){
+  PTNode* program = newPTNode(NODE_CODE_GROUP, NULL);
+  Token currentToken;
+  while(1){
+    currentToken = getNextToken(stream);
+    ungetToken(currentToken);
+    currentToken = getNextToken(stream);
+    if(currentToken.type == TOK_EOF) break;
+    
+    PTNode* node;
+    switch(currentToken.type){
+      case TOK_TYPE:
+        node = parseDecleration(stream, &currentToken);
+        break;
+      default:
+        raiseError("(generateProgramTree) unexpected token\n");
+    }
+    codeGroupAdd(program, node);
+  }
+  return program;
 }
 
-PTNode* generateDeclerationNode(FILE* stream, Token* currentToken){
-  //assume that currentToken is a "type" token
+
+PTNode* parseCodeGroup(FILE* stream, Token* currentToken){
+  expectTokenType(currentToken, TOK_CHAR, '{');
+  
+  PTNode* codeGroup = newPTNode(NODE_CODE_GROUP,NULL);
+  while(currentToken->type != TOK_EOF){
+    *currentToken = getNextToken(stream);
+    if(currentToken->str[0] == '}') break;
+    
+    PTNode* node;
+    switch(currentToken->type){
+      case TOK_TYPE:
+        node = parseDecleration(stream, currentToken);
+      break;
+      case TOK_NAME:
+        node = newPTNode(NODE_EXPRESSION, parseExpression(stream, currentToken));
+      break;
+      default:
+        raiseError("(generateCodeGroup) unexpected token \"%s\"\n", currentToken->str);
+      break;
+    };
+    codeGroupAdd(codeGroup,node);
+  }
+  return codeGroup;
+}
+
+PTNode* parseDecleration(FILE* stream, Token* currentToken){
+  expectTokenType(currentToken, TOK_TYPE, 0);
 
   int type = currentToken->value;
   *currentToken = getNextToken(stream);
@@ -54,70 +100,25 @@ PTNode* generateDeclerationNode(FILE* stream, Token* currentToken){
   *currentToken = getNextToken(stream);
   expectTokenType(currentToken, TOK_CHAR, 0);// = ( and ; all valid
   
-  if(currentToken->str[0] == '('){//function decleration
-    PTNode* node = newPTNode(NODE_FUNCTION_DECLERATION,NULL);
-    FunctionDeclerationData* data = (FunctionDeclerationData*)malloc(sizeof(FunctionDeclerationData));
-    data->name = name;
-    data->returnType = type;
-    data->argumentType = TYPE_NONE;
-
-    while(currentToken->str[0] != ')'){
-      *currentToken = getNextToken(stream);
-      if(currentToken->type == TOK_TYPE){
-        data->argumentType = currentToken->value;
-      }
-    }
-
-    *currentToken = getNextToken(stream);//eat '{' token
-    expectTokenType(currentToken, TOK_CHAR, '{');
-    data->code = generateCodeGroup(stream, currentToken);
-    node->data = data;
-    return node;
+  if(currentToken->str[0] == '('){
+    return parseFunctionDecleration(type, name, stream, currentToken);
   }
+  raiseError("unexpected token");
   free(name);
   return NULL;
 }
 
-PTNode* generateCodeGroup(FILE* stream, Token* currentToken){
-  PTNode* codeGroup = newPTNode(NODE_CODE_GROUP,NULL);
-  while(1){
-    *currentToken = getNextToken(stream);
-    PTNode* node;
-    if(currentToken->type == TOK_EOF) break;
-    if(currentToken->str[0] == '}') break; // closing brace indicates the end of the group
-    switch(currentToken->type){
-      case TOK_TYPE://function declerations are invalid here, but variable declerations are valid
-        node = generateDeclerationNode(stream, currentToken);
-      break;
-      case TOK_NAME:
-        node = generateExpressionNode(stream, currentToken);
-      break;
-      default:
-        raiseError("(generateCodeGroup) unexpected token\n");
-      break;
-    };
-    codeGroupAdd(codeGroup,node);
-  }
-  return codeGroup;
-}
+PTNode* parseFunctionDecleration(int returnType, char* name, FILE* stream, Token* currentToken){
+  FunctionDeclerationData* data = malloc(sizeof(FunctionDeclerationData));
+  data->name = name;
+  data->returnType = returnType;
+  data->argumentType = TYPE_NONE;
 
-PTNode* generateProgramTree(FILE* stream){
-  PTNode* program = newPTNode(NODE_CODE_GROUP, NULL);
-  Token currentToken;
-  char lastChar = ' ';
-  while(1){
-    currentToken = getNextToken(stream);
-    if(currentToken.type == TOK_EOF) break;
-    
-    PTNode* node;
-    switch(currentToken.type){
-      case TOK_TYPE:
-        node = generateDeclerationNode(stream, &currentToken);
-        break;
-      default:
-        raiseError("(generateProgramTree) unexpected token\n");
-    }
-    codeGroupAdd(program, node);
-  }
-  return program;
+  *currentToken = getNextToken(stream);
+  expectTokenType(currentToken, TOK_CHAR, ')');
+
+  *currentToken = getNextToken(stream);
+  data->code = parseCodeGroup(stream, currentToken);
+  
+  return newPTNode(NODE_FUNCTION_DECLERATION, data);
 }
