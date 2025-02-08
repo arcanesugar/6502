@@ -1,18 +1,8 @@
-none helloWorld(){
+none main(byte ted){
+  byte var1;
+  helloWorld();
   lcd_printchar('h');
-  lcd_printchar('e');
-  lcd_printchar('l');
-  lcd_printchar('l');
-  lcd_printchar('o');
-  lcd_printchar(' ');
-  lcd_printchar('w');
-  lcd_printchar('o');
-  lcd_printchar('r');
-  lcd_printchar('l');
-  lcd_printchar('d');
-}
-
-none main(){
-  helloWorld(lcd_printchar('a'));
-  lcd_printchar(10-2);
+  lcd_printchar(10);
+  byte var2;
+  var2 = 10;
 }

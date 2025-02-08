@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "error.h"
-#include "tokeniser.h"
+#include "lexer.h"
 
 char* getTokenTypeName(int type){
   switch(type){
@@ -17,7 +17,7 @@ char* getTokenTypeName(int type){
     case TOK_BYTELIT:
       return "BYTELIT";
     default:
-    return "<token type name missing>";
+      return "<token type name missing>";
   }
 };
 
@@ -27,14 +27,13 @@ char* strToHeap(char* str){
   return copy;
 }
 
-void expectTokenType(Token* token, int type, char c){
+void expectTokenType(Token token, int type, char c){
   if(type == TOK_CHAR && c != 0){
-    if(token->str[0] != c)
-      raiseError("expected %c token, got \"%s\"\n",c,token->str);
-    return;
+    if(token.value != c || token.type != type)
+      raiseError("expected %c token, got \"%s\"\n",c,token.str);
   }
-  if(token->type != type)
-    raiseError("expected %s token, got \"%s\"\n", getTokenTypeName(type), token->str);
+  if(token.type != type)
+    raiseError("expected %s token, got \"%s\"\n", getTokenTypeName(type), token.str);
 };
 
 void raiseError(char* fmt, ...){

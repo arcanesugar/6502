@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#include "tokeniser.h"
+#include "lexer.h"
 #include "error.h"
 
 #define NUM_KEYWORDS 2
