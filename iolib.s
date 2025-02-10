@@ -7,13 +7,7 @@ E  = %10000000
 RW = %01000000
 RS = %00100000
 
-  .org $8000
-string:
-  .asciiz "  Hello World"
-reset:
-  ldx #$ff
-  txs
-
+lcd_init:
   lda #%11111111 ; Set all pins on port B to output
   sta DDRB
   lda #%11100000 ; Set top 3 pins on port A to output
@@ -29,18 +23,7 @@ reset:
   jsr lcd_instruction
   lda #%00000001 ; Clear display
   jsr lcd_instruction
-
-  ldx #0 
-print_loop:
-  lda string,x 
-  beq loop
-  jsr print_char
-  inx
-  jmp print_loop
-
-loop:
-  jmp loop
-
+  rts
 
 lcd_wait:
   pha
@@ -73,7 +56,7 @@ lcd_instruction:
   sta PORTA
   rts
 
-print_char:
+lcd_printchar:
   jsr lcd_wait
   sta PORTB
   lda #RS         ; Set RS; Clear RW/E bits
@@ -83,8 +66,3 @@ print_char:
   lda #RS         ; Clear E bits
   sta PORTA
   rts
-
-  .org $fffc
-  .word reset
-  .word $0000
-

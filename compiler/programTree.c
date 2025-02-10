@@ -37,6 +37,26 @@ static PTNode* parseFunctionCall(char* name, FILE* stream);
 static PTNode* parseFunctionDefinition(int type, char* name, FILE* stream);
 static PTNode* parseCodeGroup(FILE* stream);
 static PTNode* parseExpression(FILE* stream);
+static PTNode* parseVariableDecleration(int type, char* name, FILE* stream);
+
+PTNode* generateProgramTree(FILE* stream){
+  PTNode* root = newPTNode(N_CODE_GROUP, NULL);
+  Token token = getNextToken(stream);
+  while(token.type != TOK_EOF){
+    PTNode* node;
+    switch(token.type){
+      case TOK_TYPE:
+        node = parseDecleration(token.type, stream);
+        break;
+      default:
+        raiseError("Unexpected token, \"%s\"\n", getTokenTypeName(token.type));
+        break;
+    }
+    codeGroupAdd(root,node);
+    token = getNextToken(stream);
+  }
+  return root;
+}
 
 PTNode* parseExpression(FILE* stream){
   PTNode* leftExpression = newPTNode(0,NULL);
@@ -65,7 +85,7 @@ PTNode* parseExpression(FILE* stream){
   return leftExpression;
 }
 
-static PTNode* parseCodeGroup(FILE* stream){
+PTNode* parseCodeGroup(FILE* stream){
   PTNode* node = newPTNode(N_CODE_GROUP, NULL);
   Token token = getNextToken(stream);
   expectTokenType(token, TOK_CHAR, '{');
@@ -87,7 +107,7 @@ static PTNode* parseCodeGroup(FILE* stream){
   return node;
 }
 
-static PTNode* parseFunctionDefinition(int type, char* name, FILE* stream){
+PTNode* parseFunctionDefinition(int type, char* name, FILE* stream){
   Token currentToken;
   FunctionDefinition* fd = malloc(sizeof(FunctionDefinition));
   fd->returnType = type;
@@ -118,7 +138,7 @@ static PTNode* parseFunctionDefinition(int type, char* name, FILE* stream){
   return node;
 }
 
-static PTNode* parseFunctionCall(char* name, FILE* stream){
+PTNode* parseFunctionCall(char* name, FILE* stream){
   FunctionCall* fc = malloc(sizeof(FunctionCall));
   Token token;
   
@@ -136,7 +156,7 @@ static PTNode* parseFunctionCall(char* name, FILE* stream){
   return node;
 }
 
-static PTNode* parseAssignmemt(char* name, FILE* stream){
+PTNode* parseAssignmemt(char* name, FILE* stream){
   Token token = getNextToken(stream);
   if(token.type == TOK_CHAR && token.value == '('){
     PTNode* n = parseFunctionCall(name, stream);
@@ -154,7 +174,7 @@ static PTNode* parseAssignmemt(char* name, FILE* stream){
   return node;
 }
 
-static PTNode* parseVariableDecleration(int type, char* name, FILE* stream){
+PTNode* parseVariableDecleration(int type, char* name, FILE* stream){
   VariableDecleration* vd = malloc(sizeof(VariableDecleration));
   vd->type = type;
   vd->name = name;
@@ -176,7 +196,7 @@ static PTNode* parseVariableDecleration(int type, char* name, FILE* stream){
   return node;
 }
 
-static PTNode* parseDecleration(int type, FILE* stream){
+PTNode* parseDecleration(int type, FILE* stream){
   Token currentToken;
   currentToken = getNextToken(stream);
   expectTokenType(currentToken, TOK_NAME, 0);
@@ -201,21 +221,3 @@ static PTNode* parseDecleration(int type, FILE* stream){
   return node;
 }
 
-PTNode* generateProgramTree(FILE* stream){
-  PTNode* root = newPTNode(N_CODE_GROUP, NULL);
-  Token token = getNextToken(stream);
-  while(token.type != TOK_EOF){
-    PTNode* node;
-    switch(token.type){
-      case TOK_TYPE:
-        node = parseDecleration(token.type, stream);
-        break;
-      default:
-        raiseError("Unexpected token, \"%s\"\n", getTokenTypeName(token.type));
-        break;
-    }
-    codeGroupAdd(root,node);
-    token = getNextToken(stream);
-  }
-  return root;
-}
