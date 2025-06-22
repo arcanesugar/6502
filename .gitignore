@@ -1,3 +1,7 @@
 vasm
+prep
 *.out
 *.bin
+*.o
+*.sqsh
+*.sqsh.*
