@@ -7,7 +7,7 @@ E  = %10000000
 RW = %01000000
 RS = %00100000
 
-  .org $8000
+  .org $8000 ; the following code begins at address $8000
 string:
   .asciiz "  Hello World"
 reset:
@@ -84,7 +84,7 @@ print_char:
   sta PORTA
   rts
 
-  .org $fffc
+  .org $fffc ;the following code begins at address $fffc
   .word reset
   .word $0000
 

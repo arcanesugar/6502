@@ -1,2 +1,3 @@
-vasm6502
-a.out
+vasm
+*.out
+*.bin
