@@ -4,4 +4,4 @@ prep
 *.bin
 *.o
 *.sqsh
-*.sqsh.*
+*.prep

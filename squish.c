@@ -6,11 +6,46 @@
 
 #define BUFFER_SIZE 1024 //must be at least 8 characters
 //if a .include line is too long to fit in the buffer the program will crash when it tries to read the file name
+
+struct DynamicArray{
+  void** arr;
+  int len;
+};
+
+
 static char* buffer;
+static struct DynamicArray aif;//already included files
 
 void error(char* message){
   fprintf(stderr, "Err: %s", message);
   exit(-1);
+}
+
+struct DynamicArray daCreate(){
+  struct DynamicArray da;
+  da.len = 0;
+  da.arr = NULL;
+  return da;
+}
+
+void daAdd(struct DynamicArray *da, void* element){
+  da->len += 1;
+  da->arr = realloc(da->arr, sizeof(void*)*da->len);
+  da->arr[da->len-1] = element;
+}
+
+void daFree(struct DynamicArray da){
+  for(int i = 0; i<da.len; i++){
+    free(da.arr[i]);
+  }
+  free(da.arr);
+}
+
+bool alreadyIncluded(char* name){
+  for(int i= 0; i<aif.len; i++){
+    if(strcmp(name, aif.arr[i]) == 0) return true;
+  }
+  return false;
 }
 
 int squishFile(char* filename, FILE* outfile){
@@ -38,16 +73,19 @@ int squishFile(char* filename, FILE* outfile){
       if(nameLen == 0) error(".include must include a valid file");
       char* name = malloc(nameLen+1);
       strncpy(name, &buffer[nameStart], nameLen);
-      
+
+      if(alreadyIncluded(name)) continue;
+
+      daAdd(&aif, name);
       size_t commentLen = nameLen+12;//";" + " " + name + " " + "included\n";
       char* comment = malloc(commentLen+1);
       strcpy(comment, "; ");
       strcat(comment, name);
       strcat(comment, " included\n");
       fwrite(comment, sizeof(char), strlen(comment), outfile);
-
+      
       squishFile(name, outfile);
-
+      
       strcpy(comment, "; ");
       strcat(comment, name);
       strcat(comment, " end\n");
@@ -64,24 +102,39 @@ int squishFile(char* filename, FILE* outfile){
 }
 
 int main(int argc, char* argv[]){
-  if(argc != 2)//first argument is the name of the program
-    error("must pass exactly 1 argument\n");
-  char* filename = argv[1];
-  int l = strlen(filename);
-  int i = l;
-  int el = 0;
-  while(filename[i] != '.') {i--; el++;}
-  char* fileExtention = malloc(el+1);
-  strcpy(fileExtention, &filename[l-el]);
-  printf("%s\n", fileExtention);
-  char* outfilename = malloc(l+5+1);
-  strcpy(outfilename, filename);
-  strcpy(&outfilename[l-el], ".sqsh");//replace file extention
-  strcat(outfilename, fileExtention);//add old file extention
-  printf("%s\n", outfilename);
-  FILE* outfile = fopen(outfilename, "w");
+  char* inFileName = NULL;
+  char* outFileName = NULL;
+  for(int i = 1; i<argc; i++){//first argument is the name of the program
+    if(strcmp(argv[i], "-i") == 0){
+      i++;
+      if(i>argc) error("-i option must be followed by a file\n");
+      if(inFileName != NULL ) error("only 1 input file is allowed\n");
+      inFileName = argv[i];
+      continue;
+    }
+    if(strcmp(argv[i], "-o") == 0){
+      i++;
+      if(i>argc) error("-o option must be followed by a file\n");
+      if(outFileName != NULL ) error("only 1 output file is allowed\n");
+      outFileName = argv[i];
+      continue;
+    }
+    if(inFileName != NULL ) error("only 1 input file is allowed\n");
+    inFileName = argv[i];
+  }
+  if(inFileName == NULL) error("Input file must be provided\n");
+  if(outFileName == NULL){
+    outFileName = malloc(strlen(inFileName)+5+1);//does not need to be freed
+    strcpy(outFileName, inFileName);
+    strcat(outFileName, ".sqsh");
+  };
+  
+  FILE* outfile = fopen(outFileName, "w");
   buffer = malloc(BUFFER_SIZE);
-  squishFile(filename, outfile);
+
+  aif = daCreate();
+  squishFile(inFileName, outfile);
   free(buffer);
+  daFree(aif);
   return 0;
 }
