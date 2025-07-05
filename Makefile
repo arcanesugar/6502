@@ -4,7 +4,7 @@ ASMFLAGS:= -Fbin -dotdir
 CC:=clang
 CFLAGS:= -O1
 
-.PHONY: hello-world 
+.PHONY: hello-world
 hello-world:hello-world.s Makefile prep
 	./prep hello-world.s -o hello-world.prep
 	$(ASM) $(ASMFLAGS) hello-world.prep -o hello-world.bin
