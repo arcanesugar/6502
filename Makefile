@@ -4,10 +4,11 @@ ASMFLAGS:= -Fbin -dotdir
 CC:=clang
 CFLAGS:= -O1
 
-.PHONY: hello-world 
+.PHONY: hello-world
 hello-world:hello-world.s Makefile prep
 	./prep hello-world.s -o hello-world.prep
 	$(ASM) $(ASMFLAGS) hello-world.prep -o hello-world.bin
+	mv hello-world.bin send.bin
 
 prep: squish.o
 	$(CC) $(CFLAGS) $^ -o prep
@@ -15,6 +16,9 @@ prep: squish.o
 %.o:%.c Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY: send
+send:send.bin
+	minipro -p AT28C256 -w send.bin
 .PHONY: clean
 clean:
 	rm -f *.o

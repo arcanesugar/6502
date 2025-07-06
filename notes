@@ -1,0 +1,98 @@
+eeprom is on when A15 = 1
+  1000000000000000 - 1111111111111111 ($8000-$FFFF)
+
+VIA is on when A15 = 0 & A14 = 1 & A13 = 1
+  0110000000000000 - 0111111111111111 ($6000 - $7FFF)
+  VIA uses bits A0-A3 to set RS0-RS3
+  011*********RRRR
+
+SRAM is on when A15 = 0 & A14 = 0
+  0000000000000000 - 0011111111111111 ($0000 - $3FFF)
+
+
+asm:
+  # - load literal
+  $ - hex
+  % - bin
+  no prefix - decimal
+  eg #$6000 = literal 6000 hex (24,576 decimal)
+
+6502 vector locations
+  FFFA-FFFB NMIB 
+  FFFC-FFFD Reset - loaded into PC register when Reset pin is held low
+  FFFE-FFFF BRK/IRQB
+
+6522 registers:
+  0000(0) - ORB/IRB: Input/Output Register B
+  0001(1) - ORA/IRA: Input/Output Register A
+  0010(2) - DDRB: Data Direction Register B (0 = in, 1 = out)
+  0011(3) - DDRA: Data Direction Register A
+
+Interrupts:
+  When an interrupt occurs:
+    - PC and P registers are pushed onto the stack 
+    - The IRQB disable flag (I) is set to 1, no interrupts can occur while it stays 1
+    - Execution jumps to interrupt handeler
+    - IRQB should be held low until the interrupt handler clear the interrupt request source
+
+  When RTI (ReTurn from Interrupt) is executed:
+    - IRQB disable flag (I) is set to 0
+    - PC and P registers are restored
+
+  WAI instruction (WAit for Interrupt):
+    Waits for an interrupt, can be used to reduce power and sync with interupt requests
+
+  NMIB (Non Maskable Interrupt Bar):
+    When a falling edge occurs on the NMIB pin an interrupt occurs
+    Because it is edge sensative an interrupt can occur while servicing a previous interrupt
+    PC and P registers still pushed to the stack
+LCD:
+  Enable bit must be pulsed to send data/instructions
+  Function set instruction should be performed first
+  4 bit mode:
+    Only DB pins 4-7 are used, data must be sent twice.
+    High order bits (4-7) are transferred first
+    
+  Instructions:
+  RS RW DB(7-0)
+   0  0  00000001 Clear Display
+                  Writes space code 20H into all DDRAM addresses
+                  Undoes display shift
+                  Return cursor returns to start
+                  Sets I/D to 1 (increment mode)
+
+   0  0  0000001- Return Home
+                  Undoes display shift
+                  Returns cursor to start
+
+   0  0  000001DS Entry mode set
+                  Sets cursor move position and specifies display shift
+                  When S = 1 D controls the direction of the display shift
+                  D : 0 increment cursor, 1 decrement cursor
+                  S : 0 cursor shift, 1 display shift
+
+   0  0  00001DCB Display on/off control
+                  D : display on(1)/off(0)
+                  C : cursor on(1)/off(0)
+                  B : cursor blinking on(1)/off(0)
+
+   0  0  0001SR-- Cursor/Display shift
+                  Shifts the cursor or display
+                  S : 0 shift cursor, 1 shift display
+                  R : 0 shift left, 1 shift right
+
+   0  0  001DNF-- Function set
+                  D : 0 four bits, 1 eight bits 
+                  N : 0 one line, 1 two lines
+                  F : 0 (5x8 dots), 1 (5x10 dots)
+
+   0  0  01AAAAAA Set CGRAM address
+                  TODO
+   0  0  1AAAAAAA Set DRAM address
+                  TODO
+
+   0  1  BAAAAAAA Read busy flag & address
+                  Reads the busy flag
+                  B (busy flag) : 0 not busy, 1 busy
+                  A (address counter): address counter (used by CG and DD RAM, value depends on previous instruction)
+

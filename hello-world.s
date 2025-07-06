@@ -1,39 +1,35 @@
-  .org $8000 ; the following code begins at address $8000
-.include "hardware.s"
+  .org $8000
 .include "lcd.s"
-string:
-  .asciiz "  Hello World"
+
 reset:
-  ldx #$ff
-  txs
-
-  lda #%11111111 ; Set all pins on port B to output
+  lda #-1
   sta DDRB
-  lda #%11100000 ; Set top 3 pins on port A to output
-  sta DDRA
+  
+  jsr lcd_init
 
-  lda #%00111000 ; 8-bit mode, 2-line display, 5x8 font
+  lda #%00001111 ; Display on; cursor on; blink on
   jsr lcd_instruction
-  lda #%00001110 ; Display on, cursor on, blink off
+  lda #%00000110 ; Shift cursor
   jsr lcd_instruction
-  lda #%00000110 ; Increment, don't shift display
-  jsr lcd_instruction
-  lda #%00000001 ; Return home
-  jsr lcd_instruction
-  lda #%00000001 ; Clear display
+  lda #$00000001 ; Clear display
   jsr lcd_instruction
 
-  ldx #0  
-print_loop:
-  lda string,x 
-  beq loop
-  jsr print_char
-  inx
-  jmp print_loop
+  lda #'H'
+  jsr lcd_char
+  lda #'i'
+  jsr lcd_char
+  lda #' '
+  jsr lcd_char
+  lda #'>'
+  jsr lcd_char
+  lda #':'
+  jsr lcd_char
+  lda #'{'
+  jsr lcd_char
 
+  lda #STATUS_LIGHT_MASK
+  sta PORTB
 loop:
   jmp loop
-  .org $fffc ;the following code begins at address $fffc
-  .word reset
-  .word $0000
 
+.include "vectors.s"

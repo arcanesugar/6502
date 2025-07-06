@@ -15,7 +15,8 @@ struct DynamicArray{
 
 static char* buffer;
 static struct DynamicArray aif;//already included files
-
+static bool verbose;
+static char* outFileName;
 void error(char* message){
   fprintf(stderr, "Err: %s", message);
   exit(-1);
@@ -49,6 +50,8 @@ bool alreadyIncluded(char* name){
 }
 
 int squishFile(char* filename, FILE* outfile){
+  if(verbose)
+      printf("squishing file %s into %s\n", filename, outFileName);
   FILE* infile = fopen(filename, "r");
   
   bool newLine = true; 
@@ -61,7 +64,7 @@ int squishFile(char* filename, FILE* outfile){
       buffer[numItems++] = c;
       if(c == '\n') break;
     }
-    if(newLine && strncmp(buffer, ".include", 8) == 0){
+    if(newLine && numItems>=8 && strncmp(buffer, ".include", 8) == 0){
       //get included file name
       int i = 8;
       while(isspace(buffer[i])){i++;}
@@ -75,7 +78,6 @@ int squishFile(char* filename, FILE* outfile){
       strncpy(name, &buffer[nameStart], nameLen);
 
       if(alreadyIncluded(name)) continue;
-
       daAdd(&aif, name);
       size_t commentLen = nameLen+12;//";" + " " + name + " " + "included\n";
       char* comment = malloc(commentLen+1);
@@ -103,13 +105,18 @@ int squishFile(char* filename, FILE* outfile){
 
 int main(int argc, char* argv[]){
   char* inFileName = NULL;
-  char* outFileName = NULL;
+  outFileName = NULL;
+  verbose = false;
   for(int i = 1; i<argc; i++){//first argument is the name of the program
     if(strcmp(argv[i], "-i") == 0){
       i++;
       if(i>argc) error("-i option must be followed by a file\n");
       if(inFileName != NULL ) error("only 1 input file is allowed\n");
       inFileName = argv[i];
+      continue;
+    }
+    if(strcmp(argv[i], "-v") == 0){
+      verbose = true;
       continue;
     }
     if(strcmp(argv[i], "-o") == 0){
