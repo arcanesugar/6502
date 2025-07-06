@@ -9,12 +9,7 @@ STATUS_LIGHT_MASK = %00000001
 lcd_init:
   ; Function set, 4 bit mode. This instruction is ran in 8 bit mode, so Function set must be called again 
   lda #%00100000
-  sta PORTB
-  ora #LCD_E_MASK
-  sta PORTB ; set enable line low
-  lda #%00100000
-  sta PORTB
-  
+  jsr lcd_instruction
   lda #%00101000 ; 4-bit; 2-lines; 5x8
   jsr lcd_instruction
   
@@ -23,6 +18,7 @@ lcd_init:
 lcd_instruction:
   ; set data direction
   tax ;stash instruction in x
+  jsr lcd_busy_wait
   lda #%11111111
   sta DDRB
   txa
@@ -71,6 +67,7 @@ lcd_instruction:
 lcd_char:
   ; set data direction
   tax ;stash char in x
+  jsr lcd_busy_wait
   lda #%11111111
   sta DDRB
   txa
@@ -113,4 +110,26 @@ lcd_char:
   tya
   sta PORTB ; set enable line high  rts 
 
+  rts
+
+lcd_busy_wait:
+  lda #%00001111
+  sta DDRB
+  
+  lda #(LCD_RW_MASK)
+  sta PORTB
+  lda #(LCD_RW_MASK|LCD_E_MASK)
+  sta PORTB
+  lda PORTB; load top nibble (contains busy flag)
+  pha
+  lda #(LCD_RW_MASK)
+  sta PORTB
+  lda #(LCD_RW_MASK|LCD_E_MASK)
+  sta PORTB
+  lda #(LCD_RW_MASK)
+  sta PORTB
+  ;ignore bottom nibble
+  pla
+  and #%10000000
+  bne lcd_busy_wait ; restart loop unless every bit is 0
   rts
