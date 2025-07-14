@@ -2,33 +2,39 @@
 .include "lcd.s"
 
 reset:
-  lda #-1
-  sta DDRB
-  
+  lda #LCD_BOTTOM
+  sta V_LCD_SELECT
   jsr lcd_init
 
-  lda #%00001111 ; Display on; cursor on; blink on
-  jsr lcd_instruction
-  lda #%00000110 ; Shift cursor
-  jsr lcd_instruction
-  lda #$00000001 ; Clear display
-  jsr lcd_instruction
+  lda #LCD_TOP
+  sta V_LCD_SELECT
+  jsr lcd_init
 
   lda #'H'
   jsr lcd_char
-  lda #'i'
+  lda #'e'
   jsr lcd_char
-  lda #' '
+  lda #'l'
   jsr lcd_char
-  lda #'>'
+  lda #'l'
   jsr lcd_char
-  lda #':'
-  jsr lcd_char
-  lda #'{'
+  lda #'o'
   jsr lcd_char
 
-  lda #STATUS_LIGHT_MASK
-  sta PORTB
+  lda #LCD_BOTTOM
+  sta V_LCD_SELECT
+
+  lda #'W'
+  jsr lcd_char
+  lda #'o'
+  jsr lcd_char
+  lda #'r'
+  jsr lcd_char
+  lda #'l'
+  jsr lcd_char
+  lda #'d'
+  jsr lcd_char
+
 loop:
   jmp loop
 

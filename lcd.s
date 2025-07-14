@@ -1,10 +1,15 @@
 .include "via.s"
 
+; constants
 LCD_DATA_MASK     = %11110000
-LCD_E_MASK        = %00001000
-LCD_RW_MASK       = %00000100
-LCD_RS_MASK       = %00000010
-STATUS_LIGHT_MASK = %00000001
+LCD_RW_MASK       = %00001000
+LCD_RS_MASK       = %00000100
+
+LCD_TOP      = %10000000
+LCD_BOTTOM   = %01000000
+
+; variables
+V_LCD_SELECT = $0000
 
 lcd_init:
   ; Function set, 4 bit mode. This instruction is ran in 8 bit mode, so Function set must be called again 
@@ -12,7 +17,12 @@ lcd_init:
   jsr lcd_instruction
   lda #%00101000 ; 4-bit; 2-lines; 5x8
   jsr lcd_instruction
-  
+  lda #%00001111 ; Display on; cursor on; blink on
+  jsr lcd_instruction
+  lda #%00000110 ; Shift cursor
+  jsr lcd_instruction
+  lda #$00000001 ; Clear display
+  jsr lcd_instruction 
   rts
 
 lcd_instruction:
@@ -20,6 +30,7 @@ lcd_instruction:
   tax ;stash instruction in x
   jsr lcd_busy_wait
   lda #%11111111
+  sta DDRA
   sta DDRB
   txa
  
@@ -44,22 +55,22 @@ lcd_instruction:
   txa
   sta PORTB
 
-  ora #LCD_E_MASK
-  sta PORTB
-
-  txa
-  sta PORTB ; set enable line high
+  ; pulse enable
+  lda V_LCD_SELECT
+  sta PORTA
+  lda #0
+  sta PORTA
   
 
   ; send bottom half
   tya
   sta PORTB ; set enable line low
 
-  ora #LCD_E_MASK
-  sta PORTB ; send top half of instruction
-
-  tya
-  sta PORTB ; set enable line high  rts
+  ; pulse enable
+  lda V_LCD_SELECT
+  sta PORTA
+  lda #0
+  sta PORTA
   
 
   rts
@@ -69,6 +80,7 @@ lcd_char:
   tax ;stash char in x
   jsr lcd_busy_wait
   lda #%11111111
+  sta DDRA
   sta DDRB
   txa
 
@@ -93,42 +105,49 @@ lcd_char:
   txa
   sta PORTB
 
-  ora #LCD_E_MASK
-  sta PORTB
-
-  txa
-  sta PORTB ; set enable line high
+  ; pulse enable
+  lda V_LCD_SELECT
+  sta PORTA
+  lda #0
+  sta PORTA
   
 
   ; send bottom half
   tya
   sta PORTB ; set enable line low
 
-  ora #LCD_E_MASK
-  sta PORTB ; send top half of instruction
-
-  tya
-  sta PORTB ; set enable line high  rts 
+  ; pulse enable
+  lda V_LCD_SELECT
+  sta PORTA
+  lda #0
+  sta PORTA
 
   rts
 
 lcd_busy_wait:
+  lda #%11111111
+  sta DDRA
   lda #%00001111
   sta DDRB
   
   lda #(LCD_RW_MASK)
   sta PORTB
-  lda #(LCD_RW_MASK|LCD_E_MASK)
-  sta PORTB
-  lda PORTB; load top nibble (contains busy flag)
-  pha
-  lda #(LCD_RW_MASK)
-  sta PORTB
-  lda #(LCD_RW_MASK|LCD_E_MASK)
-  sta PORTB
-  lda #(LCD_RW_MASK)
-  sta PORTB
-  ;ignore bottom nibble
+
+  ; load top nibble (contains busy flag)
+  lda V_LCD_SELECT
+  sta PORTA
+  lda PORTB
+  pha ; push top nibble 
+  lda #0
+  sta PORTA
+
+  ; load bottom nibble
+  lda V_LCD_SELECT
+  sta PORTA
+  ;ignore it
+  lda #0
+  sta PORTA
+
   pla
   and #%10000000
   bne lcd_busy_wait ; restart loop unless every bit is 0
